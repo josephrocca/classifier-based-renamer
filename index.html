@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Classifier-Based Renamer (Using a Teachable Machine ML Model)</title>
+</head>
+<body>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  
+  <p>First, use <a href="https://teachablemachine.withgoogle.com/" target="_blank">Teachable Machine</a> to train an ML model.</p>
+  <p>After training, click the button to upload the model and paste the URL to your model here:</p>
+  <p><input id="modelUrlEl" style="width:600px;" value="https://teachablemachine.withgoogle.com/models/C4-0_c2qF/"></p>
+  <p>
+    What action would you like to take based on the classifications?
+    <select id="actionEl">
+      <option value="rename">rename images by prepending class names (requires file editing permission)</option>
+      <option value="list">just output list of filenames for each class</option>
+    </select>
+  </p>
+  <p>Now select a folder of images with the button below.</p>
+  <button onclick="start()">choose a directory of images</button>
+  
+  <pre id="progressCtn"></pre>
+
+  <canvas id="canvasEl" style="height:300px;"></canvas>
+
+  <pre id="classListsCtn"></pre>
+
+  <script>
+    let classToImageNames = {};
+
+    async function start() {
+
+      if(!modelUrlEl.value.endsWith("/")) return alert("Please copy the URL exactly - it should start with https:// and end with a slash.");
+
+      let dirOptions = {};
+      if(actionEl.value === "rename") dirOptions.mode = "readwrite";
+
+      let dirHandle = await window.showDirectoryPicker(dirOptions);
+
+      progressCtn.innerHTML = "Loading model...";
+
+      const modelURL = modelUrlEl.value + "model.json";
+      const metadataURL = modelUrlEl.value + "metadata.json";
+      let model = await tmImage.load(modelURL, metadataURL); // API details: https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+      // Use `model` like this: `await model.predict(canvas)`; --> returns [{className. probability}, {className. probability}, ...]
+
+      let ctx = canvasEl.getContext("2d");
+      
+      let numProcessed = 0;
+
+      for await (let entry of dirHandle.values()) {
+        if(entry.kind !== 'file') continue;
+        let fileHandle = entry;
+
+        let blob = await fileHandle.getFile();
+        let bitmap = await createImageBitmap(blob);
+        canvasEl.width = bitmap.width;
+        canvasEl.height = bitmap.height;
+        ctx.drawImage(bitmap, 0, 0, canvasEl.width, canvasEl.height);
+        let startTime = Date.now();
+        let predictions = await model.predict(canvasEl);
+        console.log(Date.now()-startTime, predictions.map(p => p.className+":"+p.probability.toFixed(4)).join("  "));
+        let predictedClass = predictions.sort((a,b) => b.probability-a.probability)[0].className;
+        // debugger;
+        if(actionEl.value === "list") {
+          if(!classToImageNames[predictedClass]) classToImageNames[predictedClass] = [];
+          classToImageNames[predictedClass].push(fileHandle.name);
+        } else if(actionEl.value === "rename") {
+          let prefix = predictedClass+"___";
+          if(!fileHandle.name.startsWith(prefix)) {
+            // Currently .move() is behind a flag, but the line below can eventually bed replaced with: await fileHandle.move(predictedClass+"---"+fileHandle.name);
+            await renameFile(dirHandle, fileHandle, prefix+fileHandle.name);
+          }
+        }
+        numProcessed++;
+        progressCtn.innerHTML = "Processed: "+numProcessed;
+      }
+
+      if(actionEl.value === "list") {
+        classListsCtn.innerHTML = Object.entries(classToImageNames).map(e => `<b style="font-size:150%;">CLASS: ${e[0]}</b>\n${e[1].join("\n")}`).join("\n\n\n\n");
+      }
+
+      progressCtn.innerHTML = `<b style="font-size:150%;">Finished!</b>`;
+
+    }
+
+    // this is needed because fileHandle.move() is not implemented as of writing (Dec 2022)
+    async function renameFile(dirHandle, oldFileHandle, newName) {
+      const newFileHandle = await dirHandle.getFileHandle(newName, {create:true});
+      let oldFile = await oldFileHandle.getFile();
+      await writeFile(newFileHandle, oldFile);
+      await dirHandle.removeEntry(oldFileHandle.name);
+    }
+
+    async function writeFile(fileHandle, contents) { // contents can be an ArrayBuffer, a TypedArray, a DataView, a Blob, or a string
+      // Create a FileSystemWritableFileStream to write to.
+      const writable = await fileHandle.createWritable();
+      // Write the contents of the file to the stream.
+      await writable.write(contents);
+      // Close the file and write the contents to disk.
+      await writable.close();
+    }
+
+    
+
+  </script>
+</body>
+</html>
