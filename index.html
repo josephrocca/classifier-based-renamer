@@ -86,7 +86,7 @@
           }
         }
         numProcessed++;
-        progressCtn.innerHTML = "Processed: "+numProcessed;
+        if(numProcessed % 10 === 0) progressCtn.innerHTML = "Processed: "+numProcessed;
       }
 
       if(actionEl.value === "list") {
