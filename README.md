@@ -6,4 +6,4 @@ Renames a directory of images based on the image class according to an ML model 
 3. Go here: https://josephrocca.github.io/classifier-based-renamer/
 4. Paste your model URL and select a directory of images to classify and rename. The class name will be prepended to the image's existing filename.
 
-If you'd like to *delete* certain classes of images (instead of just renaming), then you can use this tool to rename the images, and then use your operating system's "search in directory" or "sort filenames alphabetically" functionality to isolate images of a particular class and then delete them.
+If you'd like to *delete* certain classes of images (instead of just renaming), then you can use this tool to rename the images, and then use your operating system's "search in directory" or "sort filenames alphabetically" functionality to isolate images of a particular class and then delete them. Or if you know how to use the terminal you can of course use a command like `rm classname__*`.
