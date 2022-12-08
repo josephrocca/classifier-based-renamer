@@ -15,3 +15,5 @@ If you happen to be deleting frames (e.g. produced by ffmpeg) from a video, and 
 3. Delete frames of certain class: `find . -name 'classNameToDelete___*' -exec rm {} +`
 4. Rename the remaining frames to be sequentially numbered: https://josephrocca.github.io/sequential-renamer/
 5. Merge those frames back into a video: `ffmpeg -i frame-%d.jpg video.mp4`
+
+(That's mostly a note to my future self...)
