@@ -7,7 +7,7 @@
   <script src="./enable-threads.js"></script>
 </head>
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.1.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
   
   <p>First, use <a href="https://teachablemachine.withgoogle.com/" target="_blank">Teachable Machine</a> to train an ML model.</p>
@@ -21,6 +21,7 @@
     </select>
   </p>
   <p>Now select a folder of images with the button below.</p>
+  <p style="font-weight:bold;">⚠️ Please ensure you've backed up your directory before proceeding, in case there's a bug in my code or you've made some sort of mistake.</p>
   <button onclick="start(); this.disabled=true; actionEl.disabled=true; modelUrlEl.disabled=true;">choose a directory of images &amp; begin</button>
   <p>Most browsers throttle the processing power available to "background" tabs (i.e. tabs other than the one you're currently viewing). If you want to process images fast, please <b>keep this tab visible or drag it out into its own window</b>.</p>
   
