@@ -23,7 +23,9 @@
   <button onclick="start()">choose a directory of images &amp; begin</button>
   
   <pre id="progressCtn"></pre>
-
+  
+  <p style="display:flex; align-items:center;"><input id="showCanvasCheckbox" type="checkbox" checked onchange="canvasEl.style.display=this.checked?'':'none';"> show images being processed?</p>
+  
   <canvas id="canvasEl" style="height:300px;"></canvas>
 
   <pre id="classListsCtn"></pre>
@@ -57,11 +59,13 @@
 
         let blob = await fileHandle.getFile();
         let bitmap = await createImageBitmap(blob);
-        canvasEl.width = bitmap.width;
-        canvasEl.height = bitmap.height;
-        ctx.drawImage(bitmap, 0, 0, canvasEl.width, canvasEl.height);
+        if(showCanvasCheckbox.checked) {
+          canvasEl.width = bitmap.width;
+          canvasEl.height = bitmap.height;
+          ctx.drawImage(bitmap, 0, 0, canvasEl.width, canvasEl.height);
+        }
         let startTime = Date.now();
-        let predictions = await model.predict(canvasEl);
+        let predictions = await model.predict(bitmap);
         console.log(Date.now()-startTime, predictions.map(p => p.className+":"+p.probability.toFixed(4)).join("  "));
         let predictedClass = predictions.sort((a,b) => b.probability-a.probability)[0].className;
         // debugger;
