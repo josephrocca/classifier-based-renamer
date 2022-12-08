@@ -1,7 +1,7 @@
 # Classifier-Based Image Renamer
 Renames a directory of images based on the image class according to an ML model (using Teachable Machine). To use it:
 
-1. Create an image classifier model using Teachable Machine. You just need a bunch of examples of each class - it trains in your browser.
+1. Create an image classifier model using Teachable Machine. You just need to drag and drop a bunch of examples of each class and it trains the model in your browser - very easy and convenient.
 2. Click the "upload model" button when training completes and copy the URL that it gives you.
 3. Go here: https://josephrocca.github.io/classifier-based-renamer/
 4. Paste your model URL and select a directory of images to classify and rename.
