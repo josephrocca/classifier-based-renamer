@@ -66,7 +66,13 @@
         }
         let startTime = Date.now();
         let predictions = await model.predict(bitmap);
-        console.log(Date.now()-startTime, predictions.map(p => p.className+":"+p.probability.toFixed(4)).join("  "));
+        
+        // also show debug logs if canvas checkbox is checked:
+        if(showCanvasCheckbox.checked) {
+          console.log(Date.now()-startTime, predictions.map(p => p.className+":"+p.probability.toFixed(4)).join("  "));
+        }
+        
+        
         let predictedClass = predictions.sort((a,b) => b.probability-a.probability)[0].className;
         // debugger;
         if(actionEl.value === "list") {
