@@ -120,9 +120,11 @@
           
           let topPredicted = predictions.sort((a,b) => b.probability-a.probability)[0];
           let predictedClass = topPredicted.className;
+          let isLowConfidence = false;
           if(topPredicted.probability < 0.8) {
             console.log("Not confident:", fileHandle.name, predictions);
             lowConfidencePredictions.push({name:fileHandle.name, predictions});
+            isLowConfidence = true;
           }
           
           if(actionEl.value === "list") {
@@ -133,7 +135,9 @@
             if(!fileHandle.name.startsWith(prefix)) {
               // Currently .move() is behind a flag, but the line below can eventually bed replaced with: await fileHandle.move(predictedClass+"---"+fileHandle.name);
               await renameFile(dirHandle, fileHandle, prefix+fileHandle.name);
-              lowConfidencePredictions[lowConfidencePredictions.length-1].name = prefix+fileHandle.name;
+              if(isLowConfidence) {
+                lowConfidencePredictions[lowConfidencePredictions.length-1].name = prefix+fileHandle.name;
+              }
             }
           }
           numProcessed++;
