@@ -81,7 +81,8 @@
       // Use `model` like this: `await model.predict(canvas)`; --> returns [{className. probability}, {className. probability}, ...]
       let idleModels = []
       idleModels.push(await tmImage.load(modelURL, metadataURL)); // API details: https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
-
+      
+      // TODO: This doesn't seem to work - I think they all go into the same worker and so only one can run at a time: https://github.com/tensorflow/tfjs/issues/2079#issuecomment-1344083178
       if(backend === "cpu") {
         let numCores = Number(numCoresEl.value);
         for(let i = 0; i < numCores; i++) {
