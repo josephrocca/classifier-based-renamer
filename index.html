@@ -8,6 +8,7 @@
 </head>
 <body>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.1.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm/dist/tf-backend-wasm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
   
   <p>First, use <a href="https://teachablemachine.withgoogle.com/" target="_blank">Teachable Machine</a> to train an ML model.</p>
@@ -20,6 +21,20 @@
       <option value="list">just output a list of filenames for each class</option>
     </select>
   </p>
+  <p>
+    Compute classifications on your GPU or CPU?
+    <select id="backendEl" onchange="numCoresCtn.style.display=this.value=='cpu'?'':'none';">
+      <option value="gpu">GPU (recommended)</option>
+      <option value="cpu">CPU</option>
+    </select>
+    <span id="numCoresCtn" style="display:none;">num cores: <select id="numCoresEl"></select></span>
+  </p>
+  <script>
+    for(let i = 0; i <= Math.log2(navigator.hardwareConcurrency); i++) {
+      numCoresEl.innerHTML += `<option value="${2**i}">${2**i}</option>`;
+    }
+    numCoresEl.value = 2**(Math.log2(navigator.hardwareConcurrency)-1);
+  </script>
   <p>Now select a folder of images with the button below.</p>
   <p style="font-weight:bold;">⚠️ Please ensure you've backed up your directory before proceeding, in case there's a bug in my code or you've made some sort of mistake.</p>
   <button onclick="start(); this.disabled=true; actionEl.disabled=true; modelUrlEl.disabled=true;">choose a directory of images &amp; begin</button>
@@ -33,10 +48,23 @@
 
   <pre id="classListsCtn"></pre>
 
+  <pre id="lowConfidenceCtn"></pre>
+
   <script>
     let classToImageNames = {};
+    
+    let lowConfidencePredictions = [];
 
     async function start() {
+
+      if(!window.showDirectoryPicker) return alert("Your browser doesn't yet support the new File System Access API. As of writing is supported in Chrome and Edge.");
+
+      let backend = backendEl.value;
+
+      if(backend === "cpu") {
+        tf.wasm.setThreadsCount(1);
+        await tf.setBackend('wasm');
+      }
 
       if(!modelUrlEl.value.endsWith("/")) return alert("Please copy the URL exactly - it should start with https:// and end with a slash.");
 
@@ -49,9 +77,18 @@
 
       const modelURL = modelUrlEl.value + "model.json";
       const metadataURL = modelUrlEl.value + "metadata.json";
-      let model = await tmImage.load(modelURL, metadataURL); // API details: https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+      
       // Use `model` like this: `await model.predict(canvas)`; --> returns [{className. probability}, {className. probability}, ...]
+      let idleModels = []
+      idleModels.push(await tmImage.load(modelURL, metadataURL)); // API details: https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
 
+      if(backend === "cpu") {
+        let numCores = Number(numCoresEl.value);
+        for(let i = 0; i < numCores; i++) {
+          idleModels.push(await tmImage.load(modelURL, metadataURL));
+        }
+      }
+      
       let ctx = canvasEl.getContext("2d");
       
       let numProcessed = 0;
@@ -60,41 +97,58 @@
         if(entry.kind !== 'file') continue;
         let fileHandle = entry;
 
-        let blob = await fileHandle.getFile();
-        let bitmap = await createImageBitmap(blob);
-        if(showCanvasCheckbox.checked) {
-          canvasEl.width = bitmap.width;
-          canvasEl.height = bitmap.height;
-          ctx.drawImage(bitmap, 0, 0, canvasEl.width, canvasEl.height);
-        }
-        let startTime = Date.now();
-        let predictions = await model.predict(bitmap);
+        // TODO: improve this by resolving the promise on after the idleModels.push call
+        while(idleModels.length === 0) await new Promise(r => setTimeout(r, 1));
+
+        let model = idleModels.pop();
         
-        // also show debug logs if canvas checkbox is checked:
-        if(showCanvasCheckbox.checked) {
-          console.log(Date.now()-startTime, predictions.map(p => p.className+":"+p.probability.toFixed(4)).join("  "));
-        }
-        
-        
-        let predictedClass = predictions.sort((a,b) => b.probability-a.probability)[0].className;
-        // debugger;
-        if(actionEl.value === "list") {
-          if(!classToImageNames[predictedClass]) classToImageNames[predictedClass] = [];
-          classToImageNames[predictedClass].push(fileHandle.name);
-        } else if(actionEl.value === "rename") {
-          let prefix = predictedClass+"___";
-          if(!fileHandle.name.startsWith(prefix)) {
-            // Currently .move() is behind a flag, but the line below can eventually bed replaced with: await fileHandle.move(predictedClass+"---"+fileHandle.name);
-            await renameFile(dirHandle, fileHandle, prefix+fileHandle.name);
+        (async function(model, fileHandle) {
+          let blob = await fileHandle.getFile();
+          let bitmap = await createImageBitmap(blob);
+          if(showCanvasCheckbox.checked) {
+            canvasEl.width = bitmap.width;
+            canvasEl.height = bitmap.height;
+            ctx.drawImage(bitmap, 0, 0, canvasEl.width, canvasEl.height);
           }
-        }
-        numProcessed++;
-        if(numProcessed % 10 === 0) progressCtn.innerHTML = "Processed: "+numProcessed;
+          let startTime = Date.now();
+          let predictions = await model.predict(bitmap);
+          
+          // also show debug logs if canvas checkbox is checked:
+          if(showCanvasCheckbox.checked) {
+            console.log(Date.now()-startTime, predictions.map(p => p.className+":"+p.probability.toFixed(4)).join("  "));
+          }
+          
+          let topPredicted = predictions.sort((a,b) => b.probability-a.probability)[0];
+          let predictedClass = topPredicted.className;
+          if(topPredicted.probability < 0.8) {
+            console.log("Not confident:", fileHandle.name, predictions);
+            lowConfidencePredictions.push({name:fileHandle.name, predictions});
+          }
+          
+          if(actionEl.value === "list") {
+            if(!classToImageNames[predictedClass]) classToImageNames[predictedClass] = [];
+            classToImageNames[predictedClass].push(fileHandle.name);
+          } else if(actionEl.value === "rename") {
+            let prefix = predictedClass+"___";
+            if(!fileHandle.name.startsWith(prefix)) {
+              // Currently .move() is behind a flag, but the line below can eventually bed replaced with: await fileHandle.move(predictedClass+"---"+fileHandle.name);
+              await renameFile(dirHandle, fileHandle, prefix+fileHandle.name);
+              lowConfidencePredictions[lowConfidencePredictions.length-1].name = prefix+fileHandle.name;
+            }
+          }
+          numProcessed++;
+          if(numProcessed < 100 || numProcessed % 10 === 0) progressCtn.innerHTML = "Processed: "+numProcessed;
+
+          idleModels.push(model);
+          
+        })(model, fileHandle);
       }
 
       if(actionEl.value === "list") {
         classListsCtn.innerHTML = Object.entries(classToImageNames).map(e => `<b style="font-size:150%;">CLASS: ${e[0]}</b>\n${e[1].join("\n")}`).join("\n\n\n\n");
       }
+
+      lowConfidenceCtn.innerHTML = "<b>Low-confidence predictions:</b>\n"+lowConfidencePredictions.map(o => o.name).join("\n");
 
       progressCtn.innerHTML = `<b style="font-size:150%;">Finished!</b>`;
 
