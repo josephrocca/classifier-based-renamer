@@ -8,7 +8,7 @@
 </head>
 <body>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.1.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm/dist/tf-backend-wasm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@3.9.0/dist/tf-backend-wasm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
   
   <p>First, use <a href="https://teachablemachine.withgoogle.com/" target="_blank">Teachable Machine</a> to train an ML model.</p>
@@ -123,7 +123,7 @@
           let topPredicted = predictions.sort((a,b) => b.probability-a.probability)[0];
           let predictedClass = topPredicted.className;
           let isLowConfidence = false;
-          if(topPredicted.probability < 0.8) {
+          if(topPredicted.probability < 0.9) {
             console.log("Not confident:", fileHandle.name, predictions);
             lowConfidencePredictions.push({name:fileHandle.name, predictions});
             isLowConfidence = true;
