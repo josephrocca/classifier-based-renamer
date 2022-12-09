@@ -103,6 +103,8 @@
         let model = idleModels.pop();
         
         (async function(model, fileHandle) {
+          let startTime = Date.now();
+          
           let blob = await fileHandle.getFile();
           let bitmap = await createImageBitmap(blob);
           if(showCanvasCheckbox.checked) {
@@ -110,12 +112,12 @@
             canvasEl.height = bitmap.height;
             ctx.drawImage(bitmap, 0, 0, canvasEl.width, canvasEl.height);
           }
-          let startTime = Date.now();
+          let predictionStartTime = Date.now();
           let predictions = await model.predict(bitmap);
           
           // also show debug logs if canvas checkbox is checked:
           if(showCanvasCheckbox.checked) {
-            console.log(Date.now()-startTime, predictions.map(p => p.className+":"+p.probability.toFixed(4)).join("  "));
+            console.log(predictions.map(p => p.className+":"+p.probability.toFixed(4)).join("  "), (Date.now()-predictionStartTime)+"ms");
           }
           
           let topPredicted = predictions.sort((a,b) => b.probability-a.probability)[0];
@@ -143,6 +145,10 @@
           numProcessed++;
           if(numProcessed < 100 || numProcessed % 10 === 0) progressCtn.innerHTML = "Processed: "+numProcessed;
 
+          if(showCanvasCheckbox.checked) {
+            console.log("Whole processing time:", (Date.now()-startTime)+"ms");
+          }
+          
           idleModels.push(model);
           
         })(model, fileHandle);
